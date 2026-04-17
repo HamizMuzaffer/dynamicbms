@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from 'react-native'
 import { useAuth } from '../context/AuthContext'
 import LoginScreen from '../screens/auth/LoginScreen'
 import TabNavigator from './TabNavigator'   // ← changed
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 const Stack = createNativeStackNavigator()
 
@@ -18,14 +19,16 @@ export default function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {session ? (
-        <Stack.Screen name="Main" component={TabNavigator} />  // ← changed
-      ) : (
-        <>
-          <Stack.Screen name="Login" component={LoginScreen} />
-        </>
-      )}
-    </Stack.Navigator>
+    <SafeAreaProvider >
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {session ? (
+          <Stack.Screen name="Main" component={TabNavigator} />  // ← changed
+        ) : (
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+          </>
+        )}
+      </Stack.Navigator>
+    </SafeAreaProvider>
   )
 }
