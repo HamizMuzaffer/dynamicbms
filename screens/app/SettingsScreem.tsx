@@ -6,27 +6,18 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   Alert,
   Switch,
+  Platform,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-// Section header component
 function SectionHeader({ title }: { title: string }) {
   return <Text style={styles.sectionHeader}>{title}</Text>
 }
 
-// Input field component matching login screen style
-function Field({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  secureTextEntry,
-  keyboardType,
-  hint,
-}: any) {
+function Field({ label, value, onChangeText, placeholder, secureTextEntry, keyboardType, hint }: any) {
   return (
     <View style={styles.fieldWrapper}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -46,22 +37,19 @@ function Field({
   )
 }
 
-// Port selector pill buttons
 function PortSelector({ selected, onSelect }: { selected: string; onSelect: (p: string) => void }) {
-  const ports = ['1883', '8883']
   return (
     <View style={styles.fieldWrapper}>
       <Text style={styles.fieldLabel}>Port</Text>
       <View style={styles.portRow}>
-        {ports.map((p) => (
+        {['1883', '8883'].map((p) => (
           <TouchableOpacity
             key={p}
             style={[styles.portPill, selected === p && styles.portPillActive]}
             onPress={() => onSelect(p)}
           >
             <Text style={[styles.portPillText, selected === p && styles.portPillTextActive]}>
-              {p}
-              {p === '8883' ? '  SSL' : '  Standard'}
+              {p}{p === '8883' ? '  SSL' : '  Standard'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -76,21 +64,23 @@ function PortSelector({ selected, onSelect }: { selected: string; onSelect: (p: 
 }
 
 export default function SettingsScreen() {
-  // Connection settings — will be loaded from encrypted storage later
-  const [brokerUrl, setBrokerUrl]       = useState('tridium.maxking.uk')
-  const [port, setPort]                 = useState('8883')
-  const [username, setUsername]         = useState('pmk')
-  const [password, setPassword]         = useState('')
-  const [namespace, setNamespace]       = useState('Active_Harrow')
+  const insets = useSafeAreaInsets()
+  const [brokerUrl, setBrokerUrl]         = useState('tridium.maxking.uk')
+  const [port, setPort]                   = useState('8883')
+  const [username, setUsername]           = useState('pmk')
+  const [password, setPassword]           = useState('')
+  const [namespace, setNamespace]         = useState('Active_Harrow')
   const [autoReconnect, setAutoReconnect] = useState(true)
-  const [testStatus, setTestStatus]     = useState<null | 'testing' | 'success' | 'failed'>(null)
+  const [testStatus, setTestStatus]       = useState<null | 'testing' | 'success' | 'failed'>(null)
+
+  const topPadding = insets.top > 0
+    ? insets.top
+    : (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 0)
 
   const handleTestConnection = () => {
     setTestStatus('testing')
     // TODO: attempt real MQTT connection here
-    setTimeout(() => {
-      setTestStatus('success') // mock result for now
-    }, 2000)
+    setTimeout(() => setTestStatus('success'), 2000)
   }
 
   const handleSave = () => {
@@ -109,36 +99,20 @@ export default function SettingsScreen() {
     )
   }
 
-  const getTestButtonLabel = () => {
-    if (testStatus === 'testing') return 'Testing...'
-    if (testStatus === 'success') return 'Connected!'
-    if (testStatus === 'failed')  return 'Failed — retry'
-    return 'Test Connection'
-  }
-
-  const getTestButtonColor = () => {
-    if (testStatus === 'success') return '#166534'
-    if (testStatus === 'failed')  return '#7f1d1d'
-    return '#1a1a1a'
-  }
-
-  const getTestBorderColor = () => {
-    if (testStatus === 'success') return '#22c55e'
-    if (testStatus === 'failed')  return '#ef4444'
-    return '#2a2a2a'
-  }
+  const testButtonBg     = testStatus === 'success' ? '#166834' : testStatus === 'failed' ? '#7f1d1d' : '#1a1a1a'
+  const testButtonBorder = testStatus === 'success' ? '#22c55e' : testStatus === 'failed' ? '#ef4444' : '#2a2a2a'
+  const testButtonLabel  = testStatus === 'testing' ? 'Testing...' : testStatus === 'success' ? 'Connected!' : testStatus === 'failed' ? 'Failed — retry' : 'Test Connection'
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" translucent />
 
       {/* ── Header ── */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
         <View>
           <Text style={styles.headerTitle}>Settings</Text>
           <Text style={styles.headerSub}>MQTT broker configuration</Text>
         </View>
-        {/* Connection indicator */}
         <View style={styles.connectedBadge}>
           <View style={styles.connectedDot} />
           <Text style={styles.connectedText}>Active_Harrow</Text>
@@ -150,10 +124,7 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-
-        {/* ── Broker connection ── */}
         <SectionHeader title="Broker Connection" />
-
         <View style={styles.card}>
           <Field
             label="Broker URL"
@@ -166,9 +137,7 @@ export default function SettingsScreen() {
           <PortSelector selected={port} onSelect={setPort} />
         </View>
 
-        {/* ── Authentication ── */}
         <SectionHeader title="Authentication" />
-
         <View style={styles.card}>
           <Field
             label="Username"
@@ -187,9 +156,7 @@ export default function SettingsScreen() {
           />
         </View>
 
-        {/* ── Site / Namespace ── */}
         <SectionHeader title="Site Configuration" />
-
         <View style={styles.card}>
           <Field
             label="Namespace (Site Name)"
@@ -199,9 +166,7 @@ export default function SettingsScreen() {
             hint="Changing this switches the app to a different facility instantly"
           />
           <View style={styles.cardDivider} />
-
-          {/* Topic preview */}
-          <View style={styles.topicPreview}>
+          <View style={styles.fieldWrapper}>
             <Text style={styles.topicPreviewLabel}>Topic preview</Text>
             <Text style={styles.topicLine}>{namespace || '[Namespace]'}/config/point[1-10]/name</Text>
             <Text style={styles.topicLine}>{namespace || '[Namespace]'}/status/point[1-10]/value</Text>
@@ -209,9 +174,7 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* ── Behaviour ── */}
         <SectionHeader title="Behaviour" />
-
         <View style={styles.card}>
           <View style={styles.toggleRow}>
             <View style={styles.toggleRowLeft}>
@@ -228,36 +191,25 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* ── Test connection ── */}
         <TouchableOpacity
-          style={[
-            styles.testButton,
-            {
-              backgroundColor: getTestButtonColor(),
-              borderColor: getTestBorderColor(),
-            },
-          ]}
+          style={[styles.testButton, { backgroundColor: testButtonBg, borderColor: testButtonBorder }]}
           onPress={handleTestConnection}
           disabled={testStatus === 'testing'}
         >
-          {testStatus === 'testing' && (
-            <View style={styles.testingDot} />
-          )}
+          {testStatus === 'testing' && <View style={styles.testingDot} />}
           <Text style={[
             styles.testButtonText,
             testStatus === 'success' && { color: '#22c55e' },
             testStatus === 'failed'  && { color: '#ef4444' },
           ]}>
-            {getTestButtonLabel()}
+            {testButtonLabel}
           </Text>
         </TouchableOpacity>
 
-        {/* ── Save ── */}
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
           <Text style={styles.saveButtonText}>Save Settings</Text>
         </TouchableOpacity>
 
-        {/* ── Danger zone ── */}
         <SectionHeader title="Session" />
         <View style={styles.card}>
           <TouchableOpacity style={styles.dangerRow} onPress={handleDisconnect}>
@@ -266,30 +218,25 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Build info */}
         <View style={styles.buildInfo}>
-          <Text style={styles.buildInfoText}>Dynamic BMS  •  Alpha build  •  v0.1.0</Text>
+          <Text style={styles.buildInfoText}>Dynamic BMS  •  Alpha  •  v0.1.0</Text>
           <Text style={styles.buildInfoText}>Connected to {brokerUrl}:{port}</Text>
         </View>
-
       </ScrollView>
-    </SafeAreaView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  container: {
     flex: 1,
     backgroundColor: '#000',
   },
-
-  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 16,
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
@@ -326,14 +273,10 @@ const styles = StyleSheet.create({
     color: '#22c55e',
     fontWeight: '600',
   },
-
-  // Scroll
   scroll: {
     paddingHorizontal: 20,
     paddingBottom: 40,
   },
-
-  // Section header
   sectionHeader: {
     fontSize: 11,
     color: '#444',
@@ -342,8 +285,6 @@ const styles = StyleSheet.create({
     marginTop: 28,
     marginBottom: 10,
   },
-
-  // Card
   card: {
     backgroundColor: '#0a0a0a',
     borderWidth: 1,
@@ -355,8 +296,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#111',
   },
-
-  // Field
   fieldWrapper: {
     padding: 16,
   },
@@ -382,8 +321,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 16,
   },
-
-  // Port selector
   portRow: {
     flexDirection: 'row',
     gap: 10,
@@ -410,13 +347,6 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     fontWeight: '700',
   },
-
-  // Topic preview
-  topicPreview: {
-    padding: 16,
-    paddingTop: 0,
-    gap: 4,
-  },
   topicPreviewLabel: {
     fontSize: 11,
     color: '#444',
@@ -430,8 +360,6 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     lineHeight: 20,
   },
-
-  // Toggle row inside card
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -452,8 +380,6 @@ const styles = StyleSheet.create({
     color: '#555',
     marginTop: 3,
   },
-
-  // Test button
   testButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -475,8 +401,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ddd',
   },
-
-  // Save button
   saveButton: {
     backgroundColor: '#ddd',
     borderRadius: 10,
@@ -489,8 +413,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#000',
   },
-
-  // Danger row
   dangerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -506,8 +428,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#ef4444',
   },
-
-  // Build info
   buildInfo: {
     marginTop: 32,
     alignItems: 'center',

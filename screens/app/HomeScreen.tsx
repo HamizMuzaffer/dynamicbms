@@ -3,33 +3,28 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   Switch,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
-  Dimensions,
   TextInput,
+  Platform,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-const { width } = Dimensions.get('window')
-
-// Static mock data — will be replaced by live MQTT data later
 const MOCK_NAMESPACE = 'Active_Harrow'
 const MOCK_POINTS = [
-  { id: 1, name: 'Main Boiler',         type: 'toggle',  value: true  },
-  { id: 2, name: 'Pool Pump',           type: 'toggle',  value: false },
-  { id: 3, name: 'Flow Temperature',    type: 'numeric', value: '72'  },
-  { id: 4, name: 'Return Temperature',  type: 'numeric', value: '58'  },
-  { id: 5, name: 'DHW Cylinder',        type: 'toggle',  value: true  },
-  { id: 6, name: 'AHU Fan Speed',       type: 'numeric', value: '65'  },
-  { id: 7, name: 'Chiller Unit',        type: 'toggle',  value: false },
-  { id: 8, name: 'Pool Water Temp',     type: 'numeric', value: '28'  },
-  { id: 9, name: 'Fresh Air Damper',    type: 'toggle',  value: true  },
-  { id: 10, name: 'Zone 1 Setpoint',   type: 'numeric', value: '21'  },
+  { id: 1,  name: 'Main Boiler',        type: 'toggle',  value: true  },
+  { id: 2,  name: 'Pool Pump',          type: 'toggle',  value: false },
+  { id: 3,  name: 'Flow Temperature',   type: 'numeric', value: '72'  },
+  { id: 4,  name: 'Return Temperature', type: 'numeric', value: '58'  },
+  { id: 5,  name: 'DHW Cylinder',       type: 'toggle',  value: true  },
+  { id: 6,  name: 'AHU Fan Speed',      type: 'numeric', value: '65'  },
+  { id: 7,  name: 'Chiller Unit',       type: 'toggle',  value: false },
+  { id: 8,  name: 'Pool Water Temp',    type: 'numeric', value: '28'  },
+  { id: 9,  name: 'Fresh Air Damper',   type: 'toggle',  value: true  },
+  { id: 10, name: 'Zone 1 Setpoint',    type: 'numeric', value: '21'  },
 ]
 
-// Individual point row
 function PointRow({ point, onToggle, onValueChange }: any) {
   return (
     <View style={styles.row}>
@@ -81,28 +76,34 @@ function PointRow({ point, onToggle, onValueChange }: any) {
 }
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets()
   const [points, setPoints] = useState(MOCK_POINTS)
-  const [isConnected] = useState(true) // will be driven by MQTT later
+  const [isConnected] = useState(true)
 
   const handleToggle = (id: number, val: boolean) => {
     setPoints(prev => prev.map(p => p.id === id ? { ...p, value: val } : p))
-    // TODO: publish to [Namespace]/control/point[id]/set → "ON" or "OFF"
+    // TODO: publish to [Namespace]/control/point[id]/set
   }
 
   const handleValueChange = (id: number, val: string) => {
     setPoints(prev => prev.map(p => p.id === id ? { ...p, value: val } : p))
-    // TODO: publish to [Namespace]/control/point[id]/set → val
+    // TODO: publish to [Namespace]/control/point[id]/set
   }
 
-  const onlineCount = points.filter(p => p.type === 'toggle' && p.value === true).length
+  const onlineCount  = points.filter(p => p.type === 'toggle' && p.value === true).length
   const offlineCount = points.filter(p => p.type === 'toggle' && p.value === false).length
+  const numericCount = points.filter(p => p.type === 'numeric').length
+
+  // On Android, StatusBar height is not handled by SafeAreaView reliably
+  // We manually pad the top using insets.top which works on both platforms
+  const topPadding = insets.top > 0 ? insets.top : (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 0)
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" translucent />
 
-      {/* ── Header ── */}
-      <View style={styles.header}>
+      {/* ── Header — sits below status bar on both platforms ── */}
+      <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
         <View>
           <Text style={styles.headerSite}>{MOCK_NAMESPACE}</Text>
           <Text style={styles.headerSub}>10 points monitored</Text>
@@ -134,9 +135,7 @@ export default function HomeScreen() {
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: '#3b82f6' }]}>
-            {points.filter(p => p.type === 'numeric').length}
-          </Text>
+          <Text style={[styles.summaryValue, { color: '#3b82f6' }]}>{numericCount}</Text>
           <Text style={styles.summaryLabel}>Setpoints</Text>
         </View>
       </View>
@@ -159,7 +158,6 @@ export default function HomeScreen() {
           </View>
         ))}
 
-        {/* Bottom info */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             Subscribing to {MOCK_NAMESPACE}/status/point[1-10]/value
@@ -167,24 +165,21 @@ export default function HomeScreen() {
           <Text style={styles.footerText}>Last sync: just now</Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  container: {
     flex: 1,
     backgroundColor: '#000',
   },
-
-  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
   },
@@ -220,8 +215,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-
-  // Summary bar
   summaryBar: {
     flexDirection: 'row',
     backgroundColor: '#0a0a0a',
@@ -250,8 +243,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     marginVertical: 4,
   },
-
-  // List
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: 30,
@@ -264,8 +255,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 12,
   },
-
-  // Row
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -300,8 +289,6 @@ const styles = StyleSheet.create({
   rowRight: {
     alignItems: 'flex-end',
   },
-
-  // Toggle control
   toggleWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -314,8 +301,6 @@ const styles = StyleSheet.create({
     minWidth: 28,
     textAlign: 'right',
   },
-
-  // Numeric control
   numericWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -340,13 +325,10 @@ const styles = StyleSheet.create({
     color: '#555',
     fontWeight: '500',
   },
-
   divider: {
     height: 1,
     backgroundColor: '#111',
   },
-
-  // Footer
   footer: {
     marginTop: 28,
     paddingTop: 16,
