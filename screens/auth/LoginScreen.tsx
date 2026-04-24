@@ -14,41 +14,31 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
-import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold, Poppins_300Light } from '@expo-google-fonts/poppins'
+import {
+  useFonts,
+  Poppins_400Regular,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+  Poppins_300Light,
+} from '@expo-google-fonts/poppins'
+import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 
 const { width, height } = Dimensions.get('window')
 
-// ─── Palette extracted from logo ────────────────────────────────────────────
-const COLORS = {
-  bg: '#0D0D0D',
-  surface: '#161616',
-  card: '#1A1A1A',
-  red: '#C0392B',
-  redGlow: '#E74C3C',
-  green: '#1E8449',
-  greenGlow: '#27AE60',
-  white: '#FFFFFF',
-  muted: '#6B6B6B',
-  border: '#2A2A2A',
-  inputBg: '#111111',
-  textPrimary: '#F0F0F0',
-  textSecondary: '#888888',
-}
-
 // ─── Screen Loader ───────────────────────────────────────────────────────────
 function ScreenLoader() {
-  const pulse = useRef(new Animated.Value(0.6)).current
+  const pulse  = useRef(new Animated.Value(0.6)).current
   const rotate = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0.6, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse,  { toValue: 1,   duration: 800,  useNativeDriver: true }),
+        Animated.timing(pulse,  { toValue: 0.6, duration: 800,  useNativeDriver: true }),
       ])
     ).start()
-
     Animated.loop(
       Animated.timing(rotate, { toValue: 1, duration: 2400, useNativeDriver: true })
     ).start()
@@ -58,10 +48,15 @@ function ScreenLoader() {
 
   return (
     <View style={loader.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+      <StatusBar barStyle="light-content" backgroundColor="#0D0D0D" />
       <Animated.View style={[loader.ring, { transform: [{ rotate: spin }] }]}>
         <View style={loader.ringInner} />
       </Animated.View>
+      <Image
+        source={require('../../assets/logo.png')}
+        style={loader.logo}
+        resizeMode="contain"
+      />
     </View>
   )
 }
@@ -74,6 +69,10 @@ function AnimatedInput({
   secureTextEntry,
   keyboardType,
   accentColor,
+  bgColor,
+  textColor,
+  mutedColor,
+  borderBaseColor,
 }: any) {
   const [focused, setFocused] = useState(false)
   const anim = useRef(new Animated.Value(0)).current
@@ -88,16 +87,16 @@ function AnimatedInput({
   }
 
   const borderColor = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [COLORS.border, accentColor],
+    inputRange:  [0, 1],
+    outputRange: [borderBaseColor, accentColor],
   })
 
   return (
-    <Animated.View style={[styles.inputWrapper, { borderColor }]}>
+    <Animated.View style={[styles.inputWrapper, { borderColor, backgroundColor: bgColor }]}>
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: textColor }]}
         placeholder={placeholder}
-        placeholderTextColor={COLORS.muted}
+        placeholderTextColor={mutedColor}
         value={value}
         onChangeText={onChangeText}
         onFocus={handleFocus}
@@ -107,22 +106,27 @@ function AnimatedInput({
         autoCapitalize="none"
         selectionColor={accentColor}
       />
-      {focused && <View style={[styles.inputGlow, { backgroundColor: accentColor }]} />}
+      {focused && (
+        <View style={[styles.inputGlow, { backgroundColor: accentColor }]} />
+      )}
     </Animated.View>
   )
 }
 
 // ─── Main Login Screen ───────────────────────────────────────────────────────
 export default function LoginScreen({ navigation }: any) {
-  const { signIn } = useAuth()
-  const [email, setEmail] = useState('')
+  const { signIn }           = useAuth()
+  const { theme: t, toggleTheme } = useTheme()
+
+  const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading,  setLoading]  = useState(false)
   const [appReady, setAppReady] = useState(false)
 
-  const fadeAnim = useRef(new Animated.Value(0)).current
-  const slideAnim = useRef(new Animated.Value(40)).current
-  const logoScale = useRef(new Animated.Value(0.7)).current
+  // Entry animations
+  const fadeAnim   = useRef(new Animated.Value(0)).current
+  const slideAnim  = useRef(new Animated.Value(40)).current
+  const logoScale  = useRef(new Animated.Value(0.7)).current
   const logoOpacity = useRef(new Animated.Value(0)).current
 
   const [fontsLoaded] = useFonts({
@@ -134,14 +138,13 @@ export default function LoginScreen({ navigation }: any) {
 
   useEffect(() => {
     if (fontsLoaded) {
-      // Simulate splash → login transition
       setTimeout(() => {
         setAppReady(true)
         Animated.parallel([
-          Animated.spring(logoScale, { toValue: 1, friction: 5, useNativeDriver: true }),
-          Animated.timing(logoOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
-          Animated.timing(fadeAnim, { toValue: 1, duration: 700, delay: 200, useNativeDriver: true }),
-          Animated.timing(slideAnim, { toValue: 0, duration: 600, delay: 200, useNativeDriver: true }),
+          Animated.spring(logoScale,   { toValue: 1, friction: 5,    useNativeDriver: true }),
+          Animated.timing(logoOpacity, { toValue: 1, duration: 600,  useNativeDriver: true }),
+          Animated.timing(fadeAnim,    { toValue: 1, duration: 700,  delay: 200, useNativeDriver: true }),
+          Animated.timing(slideAnim,   { toValue: 0, duration: 600,  delay: 200, useNativeDriver: true }),
         ]).start()
       }, 1800)
     }
@@ -160,16 +163,43 @@ export default function LoginScreen({ navigation }: any) {
 
   if (!fontsLoaded || !appReady) return <ScreenLoader />
 
+  // ── Dynamic colours from theme ─────────────────────────────────────────────
+  // The login screen keeps the same strong dark card in both modes
+  // but adapts the outer background and text for light mode
+  const outerBg   = t.dark ? '#0D0D0D' : '#E8EBF0'
+  const cardBg    = t.dark ? '#1A1A1A' : '#FFFFFF'
+  const cardBorder = t.dark ? '#2A2A2A' : '#E2E5EA'
+  const inputBg   = t.dark ? '#111111' : '#F5F7FA'
+  const inputBorder = t.dark ? '#2A2A2A' : '#D0D4DB'
+  const textPrimary  = t.dark ? '#F0F0F0' : '#0F1117'
+  const textSecondary = t.dark ? '#888888' : '#4A5568'
+  const textMuted    = t.dark ? '#6B6B6B' : '#9AA0AD'
+
   return (
     <KeyboardAvoidingView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: outerBg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+      <StatusBar
+        barStyle={t.dark ? 'light-content' : 'dark-content'}
+        backgroundColor={outerBg}
+      />
 
-      {/* Background gradient blobs */}
-      <View style={styles.blobRed} />
-      <View style={styles.blobGreen} />
+      {/* ── Background blobs — red top-left, blue bottom-right ── */}
+      <View style={[styles.blobRed,   { backgroundColor: t.heat }]} />
+      <View style={[styles.blobBlue,  { backgroundColor: t.cool }]} />
+
+      {/* ── Theme toggle — top right corner ── */}
+      <TouchableOpacity
+        style={[styles.themeToggle, { backgroundColor: cardBg, borderColor: cardBorder }]}
+        onPress={toggleTheme}
+      >
+        <Ionicons
+          name={t.dark ? 'sunny-outline' : 'moon-outline'}
+          size={18}
+          color={t.dark ? '#f59e0b' : '#6366f1'}
+        />
+      </TouchableOpacity>
 
       <Animated.View
         style={[
@@ -177,14 +207,14 @@ export default function LoginScreen({ navigation }: any) {
           { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
         ]}
       >
-        {/* Logo */}
+        {/* ── Logo ── */}
         <Animated.View
           style={[
             styles.logoWrapper,
             { opacity: logoOpacity, transform: [{ scale: logoScale }] },
           ]}
         >
-          <View style={styles.logoGlow} />
+          <View style={[styles.logoGlow, { backgroundColor: t.heat }]} />
           <Image
             source={require('../../assets/logo.png')}
             style={styles.logo}
@@ -192,64 +222,111 @@ export default function LoginScreen({ navigation }: any) {
           />
         </Animated.View>
 
-        {/* Title */}
-        <Text style={styles.appName}>Dynamic BMS</Text>
-        <Text style={styles.subtitle}>Sign in to your account</Text>
+        {/* ── Title ── */}
+        <Text style={[styles.appName, { color: textPrimary }]}>Dynamic BMS</Text>
+        <Text style={[styles.subtitle, { color: textSecondary }]}>Sign in to your account</Text>
 
-        {/* Divider */}
+        {/* ── Red | dot | Blue divider (matching logo colours) ── */}
         <View style={styles.divider}>
-          <View style={[styles.dividerLine, { backgroundColor: COLORS.red }]} />
-          <View style={[styles.dividerDot]} />
-          <View style={[styles.dividerLine, { backgroundColor: COLORS.green }]} />
+          <View style={[styles.dividerLine, { backgroundColor: t.heat }]} />
+          <View style={[styles.dividerDot,  { backgroundColor: textPrimary }]} />
+          <View style={[styles.dividerLine, { backgroundColor: t.cool }]} />
         </View>
 
-        {/* Card */}
-        <View style={styles.card}>
-          <Text style={styles.label}>Email Address</Text>
+        {/* ── Card ── */}
+        <View style={[
+          styles.card,
+          {
+            backgroundColor: cardBg,
+            borderColor: cardBorder,
+            shadowColor: t.dark ? '#000' : '#b0b8c8',
+          }
+        ]}>
+
+          {/* Email */}
+          <Text style={[styles.label, { color: textSecondary }]}>Email Address</Text>
           <AnimatedInput
             placeholder="you@example.com"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
-            accentColor={COLORS.redGlow}
+            accentColor={t.heat}
+            bgColor={inputBg}
+            textColor={textPrimary}
+            mutedColor={textMuted}
+            borderBaseColor={inputBorder}
           />
 
-          <Text style={[styles.label, { marginTop: 16 }]}>Password</Text>
+          {/* Password */}
+          <Text style={[styles.label, { marginTop: 16, color: textSecondary }]}>Password</Text>
           <AnimatedInput
             placeholder="••••••••"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
-            accentColor={COLORS.greenGlow}
+            accentColor={t.cool}
+            bgColor={inputBg}
+            textColor={textPrimary}
+            mutedColor={textMuted}
+            borderBaseColor={inputBorder}
           />
 
-          {/* Sign In Button */}
+          {/* ── Sign In button ── */}
           <TouchableOpacity
-            style={styles.button}
+            style={[
+              styles.button,
+              {
+                backgroundColor: t.dark ? '#161616' : '#0F1117',
+                borderColor: t.heat,
+                shadowColor: t.heat,
+              }
+            ]}
             onPress={handleLogin}
             disabled={loading}
             activeOpacity={0.85}
           >
             <View style={styles.buttonInner}>
               {loading ? (
-                <ActivityIndicator color={COLORS.white} size="small" />
+                <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <>
-                  <View style={styles.buttonAccentLeft} />
+                  {/* Left red accent */}
+                  <View style={[styles.buttonAccentLeft,  { backgroundColor: t.heat }]} />
                   <Text style={styles.buttonText}>Sign In</Text>
-                  <View style={styles.buttonAccentRight} />
+                  {/* Right blue accent */}
+                  <View style={[styles.buttonAccentRight, { backgroundColor: t.cool }]} />
                 </>
               )}
             </View>
           </TouchableOpacity>
 
-          {/* Footer link */}
+          {/* Forgot password */}
           <TouchableOpacity style={styles.forgotWrapper}>
-            <Text style={styles.forgotText}>Forgot password?</Text>
+            <Text style={[styles.forgotText, { color: textMuted }]}>Forgot password?</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.footer}>© Dynamic BMS · All rights reserved</Text>
+        {/* ── Status row — shows connection colour coding explanation ── */}
+        <View style={styles.legendRow}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: t.heat }]} />
+            <Text style={[styles.legendText, { color: textMuted }]}>Heating</Text>
+          </View>
+          <View style={[styles.legendSep, { backgroundColor: textMuted }]} />
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: t.cool }]} />
+            <Text style={[styles.legendText, { color: textMuted }]}>Cooling</Text>
+          </View>
+          <View style={[styles.legendSep, { backgroundColor: textMuted }]} />
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: t.on }]} />
+            <Text style={[styles.legendText, { color: textMuted }]}>Running</Text>
+          </View>
+        </View>
+
+        <Text style={[styles.footer, { color: textMuted }]}>
+          © Dynamic BMS · All rights reserved
+        </Text>
       </Animated.View>
     </KeyboardAvoidingView>
   )
@@ -259,8 +336,9 @@ export default function LoginScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: COLORS.bg,
   },
+
+  // Background blobs
   blobRed: {
     position: 'absolute',
     top: -80,
@@ -268,19 +346,37 @@ const styles = StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: 130,
-    backgroundColor: COLORS.red,
     opacity: 0.08,
   },
-  blobGreen: {
+  blobBlue: {
     position: 'absolute',
     bottom: -100,
     right: -60,
     width: 300,
     height: 300,
     borderRadius: 150,
-    backgroundColor: COLORS.green,
-    opacity: 0.07,
+    opacity: 0.08,
   },
+
+  // Theme toggle button — top right
+  themeToggle: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 56 : 40,
+    right: 24,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -300,7 +396,6 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: COLORS.red,
     opacity: 0.12,
   },
   logo: {
@@ -312,19 +407,17 @@ const styles = StyleSheet.create({
   appName: {
     fontFamily: 'Poppins_700Bold',
     fontSize: 28,
-    color: COLORS.textPrimary,
     letterSpacing: 1.5,
     marginBottom: 4,
   },
   subtitle: {
     fontFamily: 'Poppins_300Light',
     fontSize: 13,
-    color: COLORS.textSecondary,
     letterSpacing: 0.5,
     marginBottom: 20,
   },
 
-  // Divider
+  // Red | dot | Blue divider
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -334,28 +427,24 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1.5,
-    opacity: 0.6,
+    opacity: 0.7,
   },
   dividerDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: COLORS.white,
     marginHorizontal: 8,
-    opacity: 0.4,
+    opacity: 0.5,
   },
 
   // Card
   card: {
     width: '100%',
-    backgroundColor: COLORS.card,
     borderRadius: 20,
     padding: 24,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 10,
   },
@@ -363,7 +452,6 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: 'Poppins_600SemiBold',
     fontSize: 11,
-    color: COLORS.textSecondary,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
     marginBottom: 8,
@@ -373,14 +461,12 @@ const styles = StyleSheet.create({
   inputWrapper: {
     borderWidth: 1.5,
     borderRadius: 12,
-    backgroundColor: COLORS.inputBg,
     overflow: 'hidden',
     position: 'relative',
   },
   input: {
     fontFamily: 'Poppins_400Regular',
     fontSize: 15,
-    color: COLORS.textPrimary,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
@@ -398,10 +484,7 @@ const styles = StyleSheet.create({
     marginTop: 28,
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: COLORS.red,
-    shadowColor: COLORS.red,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 12,
@@ -421,7 +504,6 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 4,
-    backgroundColor: COLORS.red,
   },
   buttonAccentRight: {
     position: 'absolute',
@@ -429,12 +511,11 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 4,
-    backgroundColor: COLORS.green,
   },
   buttonText: {
     fontFamily: 'Poppins_600SemiBold',
     fontSize: 15,
-    color: COLORS.white,
+    color: '#FFFFFF',
     letterSpacing: 2,
     textTransform: 'uppercase',
   },
@@ -446,24 +527,50 @@ const styles = StyleSheet.create({
   forgotText: {
     fontFamily: 'Poppins_400Regular',
     fontSize: 13,
-    color: COLORS.muted,
+  },
+
+  // Colour legend row below card
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 24,
+    gap: 12,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontFamily: 'Poppins_300Light',
+    fontSize: 11,
+    letterSpacing: 0.4,
+  },
+  legendSep: {
+    width: 1,
+    height: 10,
+    opacity: 0.3,
   },
 
   footer: {
     fontFamily: 'Poppins_300Light',
     fontSize: 11,
-    color: COLORS.muted,
-    marginTop: 28,
+    marginTop: 16,
     letterSpacing: 0.5,
     opacity: 0.6,
   },
 })
 
-// ─── Loader Styles ───────────────────────────────────────────────────────────
+// ─── Loader styles ────────────────────────────────────────────────────────────
 const loader = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: '#0D0D0D',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -474,8 +581,8 @@ const loader = StyleSheet.create({
     borderRadius: 70,
     borderWidth: 2,
     borderColor: 'transparent',
-    borderTopColor: COLORS.red,
-    borderRightColor: COLORS.green,
+    borderTopColor: '#ef4444',
+    borderRightColor: '#3b82f6',
   },
   ringInner: {
     position: 'absolute',
@@ -485,17 +592,10 @@ const loader = StyleSheet.create({
     left: 8,
     borderRadius: 60,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: '#2A2A2A',
   },
   logo: {
-    width: 90,
-    height: 90,
-  },
-  text: {
-    fontFamily: 'Poppins_700Bold',
-    fontSize: 18,
-    color: COLORS.textPrimary,
-    marginTop: 56,
-    letterSpacing: 2,
+    width: 80,
+    height: 80,
   },
 })
