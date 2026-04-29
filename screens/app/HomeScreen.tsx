@@ -75,6 +75,8 @@ function StatusBanner({ status, message, onRetry, t }: any) {
 }
 
 // ── Individual point row ──────────────────────────────────────────────────────
+const STALE_AFTER_MS = 120000
+
 function PointRow({ point, onToggle, onNumericSubmit, t }: {
   point: BMSPoint
   onToggle: (id: number, val: boolean) => void
@@ -82,7 +84,7 @@ function PointRow({ point, onToggle, onNumericSubmit, t }: {
   t: Theme
 }) {
   const [localVal, setLocalVal] = useState(point.numValue)
-  const isStale = point.lastSeen === null
+  const isStale = point.lastSeen === null || (Date.now() - point.lastSeen > STALE_AFTER_MS)
 
   // Keep local input in sync with MQTT updates (when not focused)
   const [focused, setFocused] = useState(false)
@@ -191,7 +193,7 @@ function statusLabel(s: string): string {
 export default function HomeScreen() {
   const { theme: t, toggleTheme } = useTheme()
   const {
-    status, statusMessage, config, isConnected,
+    status, statusMessage, commandWarning, config, isConnected,
     points, lastSync, sendToggle, sendNumeric, reconnect,
   } = useMQTT()
 
@@ -276,6 +278,14 @@ export default function HomeScreen() {
           t={t}
         />
       )}
+      {commandWarning !== '' && (
+        <StatusBanner
+          status="error"
+          message={commandWarning}
+          onRetry={reconnect}
+          t={t}
+        />
+      )}
 
       {/* ── Summary bar ── */}
       <View style={[styles.summaryBar, { backgroundColor: t.bgSummary, borderBottomColor: t.border }]}>
@@ -342,7 +352,10 @@ export default function HomeScreen() {
         {/* Footer with MQTT topic info and last sync */}
         <View style={[styles.footer, { borderTopColor: t.border }]}>
           <Text style={[styles.footerText, { color: t.textMuted }]}>
-            Sub: {config.namespace}/status/point[1-10]/value
+            Sub: {config.namespace}N/V[1-10]
+          </Text>
+          <Text style={[styles.footerText, { color: t.textMuted }]}>
+            Cmd: {config.commandPrefix}S[1-10]
           </Text>
           <Text style={[styles.footerText, { color: t.textMuted }]}>
             Last sync: {formatLastSync(lastSync)}

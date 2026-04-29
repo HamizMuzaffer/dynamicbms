@@ -9,16 +9,18 @@ export interface MQTTConfig {
   port:          string        // '1883' or '8883'
   username:      string
   password:      string
-  namespace:     string        // Site name e.g. 'Active_Harrow'
+  namespace:     string        // Site name e.g. 'ButlinsMinehead'
+  commandPrefix: string        // Niagara command prefix e.g. 'ButlineMinehead' (legacy typo retained by server)
   autoReconnect: boolean
 }
 
 export const DEFAULT_CONFIG: MQTTConfig = {
   brokerUrl:     'tridium.maxking.uk',
-  port:          '1883',
-  username:      'paul',
+  port:          '8883',
+  username:      'pmk',
   password:      'Maxking6262',
-  namespace:     'Active_Harrow',
+  namespace:     'ButlinsMinehead',
+  commandPrefix: 'ButlineMinehead',
   autoReconnect: true,
 }
 

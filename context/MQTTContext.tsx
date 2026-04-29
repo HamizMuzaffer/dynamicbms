@@ -25,7 +25,7 @@ export type PointRole = 'heat' | 'cool' | 'unknown'
 
 export interface BMSPoint {
   id:        number
-  name:      string           // received from [ns]/config/point[n]/name
+  name:      string           // received from [ns]N[n]
   rawValue:  string           // raw MQTT payload string
   type:      PointType        // derived from rawValue: ON/OFF → toggle, numeric → numeric
   boolValue: boolean          // only meaningful when type === 'toggle'
@@ -82,6 +82,7 @@ interface MQTTContextType {
   // Points
   points:         BMSPoint[]
   lastSync:       number | null
+  commandWarning: string
 
   // Actions
   sendToggle:     (pointId: number, value: boolean) => void
@@ -102,7 +103,26 @@ export function MQTTProvider({ children }: { children: React.ReactNode }) {
     Array.from({ length: 10 }, (_, i) => makeEmptyPoint(i + 1))
   )
   const [lastSync, setLastSync] = useState<number | null>(null)
+  const [commandWarning, setCommandWarning] = useState('')
   const configRef = useRef(config)
+  const pendingAckRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
+
+  const clearPendingAck = useCallback((pointId: number) => {
+    const timer = pendingAckRef.current.get(pointId)
+    if (timer) {
+      clearTimeout(timer)
+      pendingAckRef.current.delete(pointId)
+    }
+  }, [])
+
+  const scheduleAckWatch = useCallback((pointId: number, topic: string, payload: string) => {
+    clearPendingAck(pointId)
+    const timer = setTimeout(() => {
+      setCommandWarning(`No value update received for Point ${pointId} after command ${payload} to ${topic}.`)
+      pendingAckRef.current.delete(pointId)
+    }, 8000)
+    pendingAckRef.current.set(pointId, timer)
+  }, [clearPendingAck])
 
   // Keep ref in sync so closures inside service always see latest config
   useEffect(() => { configRef.current = config }, [config])
@@ -134,12 +154,13 @@ export function MQTTProvider({ children }: { children: React.ReactNode }) {
     const unsub = mqttService.onMessage((topic, payload) => {
       const ns = configRef.current.namespace
 
-      // ── Config message: [ns]/config/point[n]/name ──────────────────────
+      // ── Name message: [ns]N[n] ──────────────────────────────────────────
       const nameMatch = topic.match(
-        new RegExp(`^${escapeRegex(ns)}/config/point(\\d+)/name$`)
+        new RegExp(`^${escapeRegex(ns)}N(\\d+)$`)
       )
       if (nameMatch) {
         const id   = parseInt(nameMatch[1], 10)
+        if (id < 1 || id > 10) return
         const name = payload.trim()
         setPoints(prev => prev.map(p =>
           p.id === id
@@ -149,14 +170,17 @@ export function MQTTProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // ── Status message: [ns]/status/point[n]/value ─────────────────────
+      // ── Value message: [ns]V[n] ─────────────────────────────────────────
       const valueMatch = topic.match(
-        new RegExp(`^${escapeRegex(ns)}/status/point(\\d+)/value$`)
+        new RegExp(`^${escapeRegex(ns)}V(\\d+)$`)
       )
       if (valueMatch) {
         const id      = parseInt(valueMatch[1], 10)
+        if (id < 1 || id > 10) return
         const type    = detectType(payload)
         const updated = Date.now()
+        clearPendingAck(id)
+        setCommandWarning('')
         setPoints(prev => prev.map(p => {
           if (p.id !== id) return p
           return {
@@ -173,7 +197,7 @@ export function MQTTProvider({ children }: { children: React.ReactNode }) {
       }
     })
     return unsub
-  }, [])
+  }, [clearPendingAck])
 
   // ── Handle app going to background / foreground ──────────────────────────
   useEffect(() => {
@@ -188,26 +212,31 @@ export function MQTTProvider({ children }: { children: React.ReactNode }) {
 
   // ── Actions ──────────────────────────────────────────────────────────────
   const sendToggle = useCallback((pointId: number, value: boolean) => {
-    const ns    = configRef.current.namespace
-    const topic = `${ns}/control/point${pointId}/set`
+    const cmdPrefix = configRef.current.commandPrefix
+    const topic = `${cmdPrefix}S${pointId}`
     const payload = value ? 'ON' : 'OFF'
     mqttService.publish(topic, payload)
+    scheduleAckWatch(pointId, topic, payload)
     // Optimistic UI update — will be corrected by next status message
     setPoints(prev => prev.map(p =>
       p.id === pointId ? { ...p, boolValue: value, rawValue: payload } : p
     ))
-  }, [])
+  }, [scheduleAckWatch])
 
   const sendNumeric = useCallback((pointId: number, value: string) => {
-    const ns    = configRef.current.namespace
-    const topic = `${ns}/control/point${pointId}/set`
+    const cmdPrefix = configRef.current.commandPrefix
+    const topic = `${cmdPrefix}S${pointId}`
     mqttService.publish(topic, value)
+    scheduleAckWatch(pointId, topic, value)
     setPoints(prev => prev.map(p =>
       p.id === pointId ? { ...p, numValue: value, rawValue: value } : p
     ))
-  }, [])
+  }, [scheduleAckWatch])
 
   const applyConfig = useCallback(async (newConfig: MQTTConfig) => {
+    console.log(
+      `[MQTTContext] applyConfig() broker=${newConfig.brokerUrl}:${newConfig.port}, namespace=${newConfig.namespace}, commandPrefix=${newConfig.commandPrefix}, user=${newConfig.username}`
+    )
     const oldNs  = configRef.current.namespace
     const newNs  = newConfig.namespace
     const sameNs = oldNs === newNs
@@ -215,7 +244,8 @@ export function MQTTProvider({ children }: { children: React.ReactNode }) {
       configRef.current.brokerUrl === newConfig.brokerUrl &&
       configRef.current.port      === newConfig.port      &&
       configRef.current.username  === newConfig.username  &&
-      configRef.current.password  === newConfig.password
+      configRef.current.password  === newConfig.password  &&
+      configRef.current.commandPrefix === newConfig.commandPrefix
 
     await saveMQTTConfig(newConfig)
     setConfig(newConfig)
@@ -223,24 +253,42 @@ export function MQTTProvider({ children }: { children: React.ReactNode }) {
 
     // Reset points when namespace changes
     if (!sameNs) {
+      pendingAckRef.current.forEach(clearTimeout)
+      pendingAckRef.current.clear()
+      setCommandWarning('')
       setPoints(Array.from({ length: 10 }, (_, i) => makeEmptyPoint(i + 1)))
       setLastSync(null)
     }
 
     if (sameServer && !sameNs) {
       // Same broker, different site — just swap subscriptions
+      console.log(`[MQTTContext] Switching namespace only: ${oldNs} -> ${newNs}`)
       mqttService.switchNamespace(oldNs, newNs)
     } else {
       // Different broker or credentials — full reconnect
+      console.log('[MQTTContext] Reconnecting MQTT with full config change')
       await mqttService.connect(newConfig)
     }
   }, [])
 
   const reconnect = useCallback(async () => {
+    console.log(
+      `[MQTTContext] reconnect() broker=${configRef.current.brokerUrl}:${configRef.current.port}, namespace=${configRef.current.namespace}`
+    )
+    pendingAckRef.current.forEach(clearTimeout)
+    pendingAckRef.current.clear()
     await mqttService.connect(configRef.current)
   }, [])
 
+  useEffect(() => {
+    return () => {
+      pendingAckRef.current.forEach(clearTimeout)
+      pendingAckRef.current.clear()
+    }
+  }, [])
+
   const testConnection = useCallback((cfg: MQTTConfig) => {
+    console.log(`[MQTTContext] testConnection() broker=${cfg.brokerUrl}:${cfg.port}, user=${cfg.username}`)
     return mqttService.testConnection(cfg)
   }, [])
 
@@ -252,6 +300,7 @@ export function MQTTProvider({ children }: { children: React.ReactNode }) {
       isConnected: status === 'connected',
       points,
       lastSync,
+      commandWarning,
       sendToggle,
       sendNumeric,
       applyConfig,

@@ -90,6 +90,7 @@ export default function SettingsScreen() {
   const [username,      setUsername]      = useState(config.username)
   const [password,      setPassword]      = useState(config.password)
   const [namespace,     setNamespace]     = useState(config.namespace)
+  const [commandPrefix, setCommandPrefix] = useState(config.commandPrefix)
   const [autoReconnect, setAutoReconnect] = useState(config.autoReconnect)
   const [testStatus,    setTestStatus]    = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle')
   const [testError,     setTestError]     = useState('')
@@ -103,8 +104,9 @@ export default function SettingsScreen() {
     setUsername(config.username)
     setPassword(config.password)
     setNamespace(config.namespace)
+    setCommandPrefix(config.commandPrefix)
     setAutoReconnect(config.autoReconnect)
-  }, [config.brokerUrl, config.port, config.username, config.namespace])
+  }, [config.brokerUrl, config.port, config.username, config.namespace, config.commandPrefix])
 
   const markDirty = (setter: (v: any) => void) => (v: any) => {
     setter(v)
@@ -117,7 +119,13 @@ export default function SettingsScreen() {
     : (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 0)
 
   const builtConfig = (): MQTTConfig => ({
-    brokerUrl, port, username, password, namespace, autoReconnect,
+    brokerUrl: brokerUrl.trim(),
+    port,
+    username: username.trim(),
+    password,
+    namespace: namespace.trim(),
+    commandPrefix: commandPrefix.trim(),
+    autoReconnect,
   })
 
   const handleTest = async () => {
@@ -129,8 +137,8 @@ export default function SettingsScreen() {
   }
 
   const handleSave = async () => {
-    if (!brokerUrl.trim() || !namespace.trim()) {
-      Alert.alert('Validation', 'Broker URL and Namespace are required.')
+    if (!brokerUrl.trim() || !namespace.trim() || !commandPrefix.trim()) {
+      Alert.alert('Validation', 'Broker URL, Namespace, and Command Prefix are required.')
       return
     }
     setSaving(true)
@@ -249,8 +257,15 @@ export default function SettingsScreen() {
           <Field
             label="Namespace (Site Name)" value={namespace}
             onChangeText={markDirty(setNamespace)}
-            placeholder="e.g. Active_Harrow"
+            placeholder="e.g. ButlinsMinehead"
             hint="Changing this instantly switches the app to a different facility" t={t}
+          />
+          <View style={[styles.div, { backgroundColor: t.border }]} />
+          <Field
+            label="Command Prefix (S topics)" value={commandPrefix}
+            onChangeText={markDirty(setCommandPrefix)}
+            placeholder="e.g. ButlineMinehead"
+            hint="Niagara uses this for inbound command topics (S1-S10)" t={t}
           />
           <View style={[styles.div, { backgroundColor: t.border }]} />
 
@@ -261,19 +276,19 @@ export default function SettingsScreen() {
               <View style={styles.topicRow}>
                 <View style={[styles.topicDot, { backgroundColor: t.textMuted }]} />
                 <Text style={[styles.topicLine, { color: t.textMuted }]}>
-                  {namespace || '[Namespace]'}/config/point[1-10]/name
+                  {namespace || '[Namespace]'}N[1-10]
                 </Text>
               </View>
               <View style={styles.topicRow}>
                 <View style={[styles.topicDot, { backgroundColor: t.cool }]} />
                 <Text style={[styles.topicLine, { color: t.cool }]}>
-                  {namespace || '[Namespace]'}/status/point[1-10]/value
+                  {namespace || '[Namespace]'}V[1-10]
                 </Text>
               </View>
               <View style={styles.topicRow}>
                 <View style={[styles.topicDot, { backgroundColor: t.heat }]} />
                 <Text style={[styles.topicLine, { color: t.heat }]}>
-                  {namespace || '[Namespace]'}/control/point[1-10]/set
+                  {commandPrefix || '[CommandPrefix]'}S[1-10]
                 </Text>
               </View>
             </View>
